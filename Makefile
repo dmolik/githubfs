@@ -1,5 +1,5 @@
 
-CFLAGS := -Wall -Wextra -pipe
+CFLAGS := -Wall -Wextra -pipe -pedantic
 LIBS   := -lcurl -lfastjson
 
 default: all
