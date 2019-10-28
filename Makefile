@@ -8,11 +8,11 @@ all: fetcher
 
 .PHONY: clean
 
-%.o: %.c
+src/%.o: src/%.c
 	$(CC) $(CFLAGS) -O -o $@ -c $<
 
-fetcher: main.o
+fetcher: src/main.o
 	$(CC) $(CFLAGS) $(LIBS) -o $@ $^
 
 clean:
-	rm -rf *.o fetcher
+	rm -rf src/*.o *.o fetcher
