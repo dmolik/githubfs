@@ -160,7 +160,6 @@ int main(void) {
 	memset(url, 0, strlen(trunc) + strlen(user) + 2);
 
 	snprintf(upass, strlen(pass) + strlen(user) + 2, "%s:%s", user, pass);
-	printf("upass: %s\n", upass);
 	snprintf(url, strlen(trunc) + strlen(user) + 2, "https://api.github.com/users/%s/starred", user);
 	printf("url: %s\n", url);
 	CURL *curl = curl_easy_init();
