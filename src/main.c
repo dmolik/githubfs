@@ -5,6 +5,7 @@
 #include <string.h>
 #include <curl/curl.h>
 #include <libfastjson/json.h>
+#include "repo.h"
 
 struct string {
 	char *ptr;
@@ -26,6 +27,26 @@ struct resp {
 	char   *hdr;
 };
 
+
+char *trim(char *str)
+{
+	char *end;
+
+	while(isspace((unsigned char)*str))
+		str++;
+
+	if (*str == 0) // All spaces?
+		return str;
+
+	end = str + strlen(str) - 1;
+	while(end > str && isspace((unsigned char)*end))
+		end--;
+
+	end[1] = '\0';
+
+	return str;
+}
+
 size_t writefunc(void *ptr, size_t size, size_t nmemb, void *data)
 {
 	struct resp *r = (struct resp *) data;
@@ -41,25 +62,7 @@ size_t writefunc(void *ptr, size_t size, size_t nmemb, void *data)
 
 	return size*nmemb;
 }
-char *trim(char *str)
-{
-  char *end;
 
-  // Trim leading space
-  while(isspace((unsigned char)*str)) str++;
-
-  if(*str == 0)  // All spaces?
-    return str;
-
-  // Trim trailing space
-  end = str + strlen(str) - 1;
-  while(end > str && isspace((unsigned char)*end)) end--;
-
-  // Write new null terminator character
-  end[1] = '\0';
-
-  return str;
-}
 static size_t header_callback(char *buffer, size_t size, size_t nitems, void *data)
 {
 	if (strncmp("Link: ", buffer, 6) == 0) {
@@ -84,7 +87,7 @@ static size_t header_callback(char *buffer, size_t size, size_t nitems, void *da
 	return nitems * size;
 }
 
-int get(CURL *curl, char *url, char *upass)
+int get(CURL *curl, char *url, char *upass, struct list *repos)
 {
 	struct resp r;
 	init_string(&r.s);
@@ -129,43 +132,54 @@ int get(CURL *curl, char *url, char *upass)
 		fjson_object *elm = fjson_object_array_get_idx(obj, i);
 		struct fjson_object_iterator it = fjson_object_iter_begin(elm);
 		struct fjson_object_iterator itEnd = fjson_object_iter_end(elm);
+		char *name = NULL;
+		char *url = NULL;
+		repo *r;
 		while (!fjson_object_iter_equal(&it, &itEnd)) {
 			if (strcmp("name", fjson_object_iter_peek_name(&it)) == 0)
-				printf("%s: ", fjson_object_get_string(fjson_object_iter_peek_value(&it)));
+				name = (char *) fjson_object_get_string(fjson_object_iter_peek_value(&it));
 			if (strcmp("ssh_url", fjson_object_iter_peek_name(&it)) == 0)
-				printf("%s\n", fjson_object_get_string(fjson_object_iter_peek_value(&it)));
+				url = (char *) fjson_object_get_string(fjson_object_iter_peek_value(&it));
+			if (name != NULL && url != NULL) {
+				r = new_repo(name, url);
+				add_el(repos, new_el(r));
+				break;
+			}
 			fjson_object_iter_next(&it);
 		}
 	}
 	if (!fjson_object_iter_equal(&it, &itEnd)) {
-		fprintf(stderr, "there was an error processing the json object from: %s\n", url);
-		exit(EXIT_FAILURE);
+		//do nothing
 	}
 
 	free(r.s.ptr);
 	if (r.hdr != NULL) {
 		curl = curl_easy_init();
-		get(curl, r.hdr, upass);
+		get(curl, r.hdr, upass, repos);
 	}
 
 	return 0;
 }
 int main(void) {
+	struct list *repos = malloc(sizeof(struct list));
+
 	char *user = getenv("GH_USER");
 	char *pass = getenv("GH_TOKEN");
+
 	char *upass = malloc(strlen(user) + strlen(pass) + 3);
 	memset(upass, 0, strlen(user) + strlen(pass) + 3);
+
 	char *trunc = "https://api.github.com/users//starred";
 	char *url = malloc(strlen(trunc)+ strlen(user) + 2);
 	memset(url, 0, strlen(trunc) + strlen(user) + 2);
-
 	snprintf(upass, strlen(pass) + strlen(user) + 2, "%s:%s", user, pass);
 	snprintf(url, strlen(trunc) + strlen(user) + 2, "https://api.github.com/users/%s/starred", user);
 	printf("url: %s\n", url);
 	CURL *curl = curl_easy_init();
 	if(curl) {
-		get(curl, url, upass);
+		get(curl, url, upass, repos);
 	} else
 		exit(1);
+	print_repos(repos);
 	return 0;
 }

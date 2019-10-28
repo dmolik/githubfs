@@ -11,7 +11,7 @@ all: fetcher
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) -O -o $@ -c $<
 
-fetcher: src/main.o
+fetcher: src/main.o src/repo.o
 	$(CC) $(CFLAGS) $(LIBS) -o $@ $^
 
 clean:
