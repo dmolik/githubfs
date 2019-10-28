@@ -2,6 +2,10 @@
 CFLAGS := -Wall -Wextra -pipe
 LIBS   := -lcurl -lfastjson
 
+default: all
+
+all: fetcher
+
 .PHONY: clean
 
 %.o: %.c
