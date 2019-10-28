@@ -8,13 +8,13 @@ You're going to need a; Compiler, Make of some sort, libfastjson with headers, a
 
 ## Building
 
-ALl you need to do is run:
+All you need to do is run:
 
     make
 
 ## Running
 
-The fetcher needs two environment variables GH_USER; your github username, and GH_TOKEN; a personal access token to your public_repos. Execution might look something like this:
+The fetcher needs two environment variables `GH_USER`; your github username, and `GH_TOKEN`; a personal access token to your public repos. Execution might look something like this:
 
     export GH_USER=dmolik
     export GH_TOKEN=<redacted>
