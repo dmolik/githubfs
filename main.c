@@ -102,7 +102,6 @@ int get(CURL *curl, char *url, char *upass)
 	curl_easy_setopt(curl, CURLOPT_WRITEDATA, &r);
 	curl_easy_setopt(curl, CURLOPT_USERPWD, upass);
 
-	printf("fetching %s\n", url);
 	res = curl_easy_perform(curl);
 	curl_slist_free_all(list); /* free the list again */
 	if (res != CURLE_OK) {
