@@ -1,6 +1,7 @@
 #include <curl/curl.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <ctype.h>
 #include <string.h>
 #include <curl/curl.h>
 #include <libfastjson/json.h>
@@ -135,7 +136,10 @@ int get(CURL *curl, char *url, char *upass)
 				printf("%s\n", fjson_object_get_string(fjson_object_iter_peek_value(&it)));
 			fjson_object_iter_next(&it);
 		}
-
+	}
+	if (!fjson_object_iter_equal(&it, &itEnd)) {
+		fprintf(stderr, "there was an error processing the json object from: %s\n", url);
+		exit(EXIT_FAILURE);
 	}
 
 	free(r.s.ptr);
