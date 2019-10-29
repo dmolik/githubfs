@@ -34,6 +34,12 @@ repo * new_repo(char *name, char *url)
 	memset(r, 0, sizeof(repo));
 	r->name = name;
 	r->url  = url;
+	char *path = malloc(strlen(name) + 3);
+	memset(path, 0, strlen(name) + 3);
+	path[0] = '/';
+	path[1] = '\0';
+	strcat(path, name);
+	r->path = strdup(path);
 	return r;
 }
 

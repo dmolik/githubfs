@@ -5,6 +5,7 @@
 typedef struct repo {
 	char *name;
 	char *url;
+	char *path;
 } repo;
 
 struct el {

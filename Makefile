@@ -1,6 +1,6 @@
 
 CFLAGS := -Wall -Wextra -pipe -pedantic
-LIBS   := -lcurl -lfastjson
+LIBS   := -lcurl -lfastjson -lfuse
 
 default: all
 

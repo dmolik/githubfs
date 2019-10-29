@@ -1,16 +1,30 @@
+#define FUSE_USE_VERSION 26
+#define _FILE_OFFSET_BITS 64
+
 #include <curl/curl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <ctype.h>
 #include <string.h>
+#include <errno.h>
+
+#include <fuse.h>
 #include <curl/curl.h>
 #include <libfastjson/json.h>
+
 #include "repo.h"
 
 struct string {
 	char *ptr;
 	size_t len;
 };
+
+struct resp {
+	struct string s;
+	char   *hdr;
+};
+
+struct list *repos;
 
 void init_string(struct string *s) {
 	s->len = 0;
@@ -21,12 +35,6 @@ void init_string(struct string *s) {
 	}
 	s->ptr[0] = '\0';
 }
-
-struct resp {
-	struct string s;
-	char   *hdr;
-};
-
 
 char *trim(char *str)
 {
@@ -160,8 +168,93 @@ int get(CURL *curl, char *url, char *upass, struct list *repos)
 
 	return 0;
 }
-int main(void) {
-	struct list *repos = malloc(sizeof(struct list));
+
+static int readdir_callback(__attribute__((unused)) const char *path, void *buf, fuse_fill_dir_t filler,
+	off_t offset, __attribute__((unused)) struct fuse_file_info *fi)
+{
+	(void) offset;
+	(void) fi;
+
+	filler(buf, ".", NULL, 0);
+	filler(buf, "..", NULL, 0);
+
+	struct el *elm = repos->first;
+	repo *r;
+	while (elm != NULL) {
+		r = elm->data;
+		filler(buf, r->name, NULL, 0);
+		elm = elm->next;
+	}
+
+	return 0;
+}
+
+static int getattr_callback(const char *path, struct stat *stbuf)
+{
+	memset(stbuf, 0, sizeof(struct stat));
+
+	if (strncmp(path, "/", 2) == 0) {
+		stbuf->st_mode = S_IFDIR | 0755;
+		stbuf->st_nlink = 2;
+		return 0;
+	}
+
+	struct el *elm = repos->first;
+	repo *r;
+	while (elm != NULL) {
+		r = elm->data;
+		if (strcmp(path, r->path) == 0) {
+			stbuf->st_mode = S_IFREG | 0444;
+			stbuf->st_nlink = 1;
+			stbuf->st_size = strlen(r->url);
+			return 0;
+		}
+		elm = elm->next;
+	}
+
+	return -ENOENT;
+}
+
+static int open_callback(__attribute__((unused)) const char *path, __attribute__((unused)) struct fuse_file_info *fi) {
+	return 0;
+}
+
+static int read_callback(const char *path, char *buf, size_t size, off_t offset,
+	__attribute__((unused)) struct fuse_file_info *fi)
+{
+	
+	struct el *elm = repos->first;
+	repo *r;
+	while (elm != NULL) {
+		r = elm->data;
+		if (strncmp(path, r->path, strlen(r->path) + 1) == 0) {
+			size_t len = strlen(r->url);
+			if ((size_t)offset >= len) {
+				return 0;
+			}
+
+			if (offset + size > len) {
+				memcpy(buf, r->url + offset, len - offset);
+				return len - offset;
+			}
+
+			memcpy(buf, r->url + offset, size);
+			return size;
+		}
+		elm = elm->next;
+	}
+	return -ENOENT;
+}
+
+static struct fuse_operations fuse_fetcher_opts = {
+	.getattr = getattr_callback,
+	.open    = open_callback,
+	.read    = read_callback,
+	.readdir = readdir_callback,
+};
+
+
+int main(int argc, char *argv[]) {
 
 	char *user = getenv("GH_USER");
 	char *pass = getenv("GH_TOKEN");
@@ -172,14 +265,19 @@ int main(void) {
 	char *trunc = "https://api.github.com/users//starred";
 	char *url = malloc(strlen(trunc)+ strlen(user) + 2);
 	memset(url, 0, strlen(trunc) + strlen(user) + 2);
-	snprintf(upass, strlen(pass) + strlen(user) + 2, "%s:%s", user, pass);
+
+	snprintf(upass, strlen(pass) + strlen(user) + 3, "%s:%s", user, pass);
 	snprintf(url, strlen(trunc) + strlen(user) + 2, "https://api.github.com/users/%s/starred", user);
-	printf("url: %s\n", url);
+	printf("fetching stars...\n");
+	repos = malloc(sizeof(struct list));
 	CURL *curl = curl_easy_init();
 	if(curl) {
 		get(curl, url, upass, repos);
 	} else
 		exit(1);
-	print_repos(repos);
-	return 0;
+	printf("  finished\n");
+
+	printf("mounting filesystem\n");
+	// print_repos(repos);
+	return fuse_main(argc, argv, &fuse_fetcher_opts, NULL);
 }
