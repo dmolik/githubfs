@@ -325,6 +325,7 @@ int main(int argc, char *argv[])
 	snprintf(url, strlen(trunc) + strlen(user) + 2, "https://api.github.com/users/%s/starred", user);
 	printf("fetching stars...\n");
 	repos = malloc(sizeof(struct list));
+	memset(repos, 0, sizeof(struct list));
 	CURL *curl = curl_easy_init();
 	if (curl) {
 		get(curl, url, upass, repos);
