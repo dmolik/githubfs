@@ -122,7 +122,6 @@ int get(CURL *curl, char *url, char *upass, struct list *repos)
 		curl_easy_cleanup(curl);
 		return 1;
 	}
-	curl_easy_cleanup(curl);
 	long response_code;
 	curl_easy_getinfo(curl, CURLINFO_RESPONSE_CODE, &response_code);
 	if (response_code >= 400) {
@@ -167,10 +166,8 @@ int get(CURL *curl, char *url, char *upass, struct list *repos)
 	}
 
 	free(r.s.ptr);
-	if (r.hdr != NULL) {
-		curl = curl_easy_init();
+	if (r.hdr != NULL)
 		get(curl, r.hdr, upass, repos);
-	}
 
 	return 0;
 }
@@ -252,7 +249,6 @@ static int open_callback(__attribute__((unused)) const char *path, __attribute__
 static int read_callback(const char *path, char *buf, size_t size, off_t offset,
 	__attribute__((unused)) struct fuse_file_info *fi)
 {
-	
 	struct el *elm = repos->first;
 	repo *r;
 	while (elm != NULL) {
@@ -302,13 +298,16 @@ int main(int argc, char *argv[]) {
 	printf("fetching stars...\n");
 	repos = malloc(sizeof(struct list));
 	CURL *curl = curl_easy_init();
-	if(curl) {
+	if (curl) {
 		get(curl, url, upass, repos);
-	} else
+		curl_easy_cleanup(curl);
+	} else {
+		curl_easy_cleanup(curl);
 		exit(1);
+	}
 	printf("  finished\n");
 
 	printf("mounting filesystem\n");
-	// print_repos(repos);
+
 	return fuse_main(argc, argv, &fuse_fetcher_opts, NULL);
 }
