@@ -308,7 +308,8 @@ static struct fuse_operations fuse_fetcher_opts = {
 };
 
 
-int main(int argc, char *argv[]) {
+int main(int argc, char *argv[])
+{
 
 	char *user = getenv("GH_USER");
 	char *pass = getenv("GH_TOKEN");
