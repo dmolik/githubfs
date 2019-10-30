@@ -26,7 +26,7 @@ clean:
 install: $(addprefix install_,$(BINS))
 
 container:
-	docker build -t $(REPO)/github_fetcher .
+	docker build -t $(REPO)/github_fetcher:latest .
 
 $(addprefix install_,$(BINS)): install_%: %
 	install -D -m 0755 $< $(DESTDIR)$(PREFIX)/bin/$<
