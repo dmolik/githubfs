@@ -55,10 +55,10 @@ char * repo_string(repo *r)
 	if (r == NULL)
 		return NULL;
 
-	char *str = malloc(strlen(r->url) + strlen(r->description) + strlen("url: \ndescription: \n") + 4);
-	memset(str, 0, strlen(r->url) + strlen(r->description) + strlen("url: \ndescription: \n") + 4);
-	snprintf(str, strlen(r->url) + strlen(r->description) + strlen("url: \ndescription: \n") + 4,
-		"URL: %s\nDescription: %s\n", r->url, r->description);
+	size_t len = strlen(r->url) + strlen(r->description) + strlen("url: \ndescription: \n") + 4;
+	char *str = malloc(len);
+	memset(str, 0, len);
+	snprintf(str, len, "URL: %s\nDescription: %s\n", r->url, r->description);
 	return strdup(str);
 }
 
