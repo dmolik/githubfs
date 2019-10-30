@@ -24,6 +24,8 @@ The fetcher needs two environment variables `GH_USER`; your github username, and
 
 For example:
 
+    > export GH_USER=dmolik
+    > export GH_TOKEN=example123
     > ./fetcher t
     
     > tree t
