@@ -62,6 +62,16 @@ char * repo_string(repo *r)
 	return strdup(str);
 }
 
+int list_len(struct list *li)
+{
+	struct el *elm = li->first;
+	int size = 1;
+	while (elm != NULL) {
+		size++;
+		elm = elm->next;
+	}
+	return size;
+}
 void print_repos(struct list *li)
 {
 	struct el *elm = li->first;

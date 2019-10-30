@@ -172,6 +172,38 @@ int get(CURL *curl, char *url, char *upass, struct list *repos)
 	return 0;
 }
 
+char **dup;
+int   dup_length = 1;
+
+void dedup_list(struct list *li)
+{
+	struct el *elm = li->first;
+	repo *r;
+	while (elm != NULL) {
+		r = elm->data;
+		char *tmp = strdup(r->path[0]);
+		tmp++;
+		for (int i = 0; i < dup_length; i++) {
+			if (i == 0 && dup_length == 1) {
+				// list is uninitialized
+				dup[i] = malloc(strlen(tmp));
+				dup[i] = strdup(tmp);
+				dup_length++;
+				break;
+			} else if (i == dup_length - 1) { // last element
+				dup[i] = malloc(strlen(tmp));
+				dup[i] = strdup(tmp);
+				dup_length++;
+				break;
+			} else if (strcmp(tmp, dup[i]) == 0) {
+				break;
+			}
+		}
+		elm = elm->next;
+	}
+	dup_length--;
+}
+
 static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
 	off_t offset, __attribute__((unused)) struct fuse_file_info *fi)
 {
@@ -182,13 +214,8 @@ static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
 	filler(buf, "..", NULL, 0);
 
 	if (strncmp(path, "/", 2) == 0) {
-		struct el *elm = repos->first;
-		repo *r;
-		while (elm != NULL) {
-			r = elm->data;
-			char *tmp =strdup(r->path[0]);
-			filler(buf, ++tmp, NULL, 0);
-			elm = elm->next;
+		for (int i = 0; i < dup_length; i++) {
+			filler(buf, dup[i], NULL, 0);
 		}
 	} else {
 		struct el *elm = repos->first;
@@ -306,7 +333,10 @@ int main(int argc, char *argv[]) {
 		exit(1);
 	}
 	printf("  finished\n");
-
+	printf("deduping orgs\n");
+	dup = malloc(sizeof(char **) * list_len(repos));
+	dedup_list(repos);
+	printf("finished\n");
 	printf("mounting filesystem\n");
 
 	return fuse_main(argc, argv, &fuse_fetcher_opts, NULL);
