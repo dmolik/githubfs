@@ -26,7 +26,7 @@ int add_el(struct list *li, struct el *elm)
 	return 0;
 }
 
-repo * new_repo(char *name, char *url)
+repo * new_repo(char *name, char *url, char *fullpath, char *description)
 {
 	repo *r;
 	if ((r = malloc(sizeof(repo))) == NULL)
@@ -34,13 +34,32 @@ repo * new_repo(char *name, char *url)
 	memset(r, 0, sizeof(repo));
 	r->name = name;
 	r->url  = url;
-	char *path = malloc(strlen(name) + 3);
-	memset(path, 0, strlen(name) + 3);
-	path[0] = '/';
-	path[1] = '\0';
-	strcat(path, name);
-	r->path = strdup(path);
+	r->description = description;
+
+	char *path1  = malloc(strlen(fullpath) + 3);
+	memset(path1, 0, strlen(fullpath) + 3);
+	path1[0] = '/';
+	path1[1] = '\0';
+	strcat(path1, fullpath);
+
+	char *path0 = strdup(path1);
+	path0[strlen(path0) - strlen(rindex(path0, '/'))] = '\0';
+
+	r->path[0] = strdup(path0);
+	r->path[1] = strdup(path1);
 	return r;
+}
+
+char * repo_string(repo *r)
+{
+	if (r == NULL)
+		return NULL;
+
+	char *str = malloc(strlen(r->url) + strlen(r->description) + strlen("url: \ndescription: \n") + 4);
+	memset(str, 0, strlen(r->url) + strlen(r->description) + strlen("url: \ndescription: \n") + 4);
+	snprintf(str, strlen(r->url) + strlen(r->description) + strlen("url: \ndescription: \n") + 4,
+		"URL: %s\nDescription: %s\n", r->url, r->description);
+	return strdup(str);
 }
 
 void print_repos(struct list *li)

@@ -5,7 +5,8 @@
 typedef struct repo {
 	char *name;
 	char *url;
-	char *path;
+	char *path[2];
+	char *description;
 } repo;
 
 struct el {
@@ -24,7 +25,9 @@ struct el * new_el(void *data);
 
 int add_el(struct list *li, struct el *elm);
 
-repo * new_repo(char *name, char *url);
+repo * new_repo(char *name, char *url, char *fullpath, char *description);
+
+char * repo_string(repo *r);
 
 void print_repos(struct list *li);
 

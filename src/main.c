@@ -142,14 +142,20 @@ int get(CURL *curl, char *url, char *upass, struct list *repos)
 		struct fjson_object_iterator itEnd = fjson_object_iter_end(elm);
 		char *name = NULL;
 		char *url = NULL;
+		char *description = NULL;
+		char *fullpath = NULL;
 		repo *r;
 		while (!fjson_object_iter_equal(&it, &itEnd)) {
 			if (strcmp("name", fjson_object_iter_peek_name(&it)) == 0)
 				name = (char *) fjson_object_get_string(fjson_object_iter_peek_value(&it));
 			if (strcmp("ssh_url", fjson_object_iter_peek_name(&it)) == 0)
 				url = (char *) fjson_object_get_string(fjson_object_iter_peek_value(&it));
-			if (name != NULL && url != NULL) {
-				r = new_repo(name, url);
+			if (strcmp("full_name", fjson_object_iter_peek_name(&it)) == 0)
+				fullpath = (char *) fjson_object_get_string(fjson_object_iter_peek_value(&it));
+			if (strcmp("description", fjson_object_iter_peek_name(&it)) == 0)
+				description = (char *) fjson_object_get_string(fjson_object_iter_peek_value(&it));
+			if (name != NULL && url != NULL && description != NULL && fullpath != NULL) {
+				r = new_repo(name, url, fullpath, description);
 				add_el(repos, new_el(r));
 				break;
 			}
@@ -169,7 +175,7 @@ int get(CURL *curl, char *url, char *upass, struct list *repos)
 	return 0;
 }
 
-static int readdir_callback(__attribute__((unused)) const char *path, void *buf, fuse_fill_dir_t filler,
+static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
 	off_t offset, __attribute__((unused)) struct fuse_file_info *fi)
 {
 	(void) offset;
@@ -178,12 +184,25 @@ static int readdir_callback(__attribute__((unused)) const char *path, void *buf,
 	filler(buf, ".", NULL, 0);
 	filler(buf, "..", NULL, 0);
 
-	struct el *elm = repos->first;
-	repo *r;
-	while (elm != NULL) {
-		r = elm->data;
-		filler(buf, r->name, NULL, 0);
-		elm = elm->next;
+	if (strncmp(path, "/", 2) == 0) {
+		struct el *elm = repos->first;
+		repo *r;
+		while (elm != NULL) {
+			r = elm->data;
+			char *tmp =strdup(r->path[0]);
+			filler(buf, ++tmp, NULL, 0);
+			elm = elm->next;
+		}
+	} else {
+		struct el *elm = repos->first;
+		repo *r;
+		while (elm != NULL) {
+			r = elm->data;
+			if (strcmp(path, r->path[0]) == 0) {
+				filler(buf, r->name, NULL, 0);
+			}
+			elm = elm->next;
+		}
 	}
 
 	return 0;
@@ -203,10 +222,21 @@ static int getattr_callback(const char *path, struct stat *stbuf)
 	repo *r;
 	while (elm != NULL) {
 		r = elm->data;
-		if (strcmp(path, r->path) == 0) {
+		if (strcmp(path, r->path[0]) == 0) {
+			stbuf->st_mode = S_IFDIR | 0755;
+			stbuf->st_nlink = 2;
+			return 0;
+		}
+		elm = elm->next;
+	}
+
+	elm = repos->first;
+	while (elm != NULL) {
+		r = elm->data;
+		if (strcmp(path, r->path[1]) == 0) {
 			stbuf->st_mode = S_IFREG | 0444;
 			stbuf->st_nlink = 1;
-			stbuf->st_size = strlen(r->url);
+			stbuf->st_size = strlen(repo_string(r));
 			return 0;
 		}
 		elm = elm->next;
@@ -227,18 +257,19 @@ static int read_callback(const char *path, char *buf, size_t size, off_t offset,
 	repo *r;
 	while (elm != NULL) {
 		r = elm->data;
-		if (strncmp(path, r->path, strlen(r->path) + 1) == 0) {
-			size_t len = strlen(r->url);
+		if (strncmp(path, r->path[1], strlen(r->path[1]) + 1) == 0) {
+			char *content = repo_string(r);
+			size_t len = strlen(content);
 			if ((size_t)offset >= len) {
 				return 0;
 			}
 
 			if (offset + size > len) {
-				memcpy(buf, r->url + offset, len - offset);
+				memcpy(buf, content + offset, len - offset);
 				return len - offset;
 			}
 
-			memcpy(buf, r->url + offset, size);
+			memcpy(buf, content + offset, size);
 			return size;
 		}
 		elm = elm->next;
