@@ -24,8 +24,9 @@ The fetcher needs two environment variables `GH_USER`; your github username, and
 
 For example:
 
-    ./fetcher t
+    $ ./fetcher t
     
+    $ tree t
     t
     ├── aalhour
     │   └── awesome-compilers
@@ -38,6 +39,6 @@ For example:
     └─ AidoP
        └── Skypaper
     
-    cat t/acassen/keepalived
+    $ cat t/acassen/keepalived
     URL: git@github.com:acassen/keepalived.git
     Description: Keepalived
