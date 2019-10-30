@@ -21,3 +21,23 @@ The fetcher needs two environment variables `GH_USER`; your github username, and
     export GH_USER=dmolik
     export GH_TOKEN=<redacted>
     ./fetcher <some dir>
+
+For example:
+
+    ./fetcher t
+    
+    t
+    ├── aalhour
+    │   └── awesome-compilers
+    ├── acassen
+    │   └── keepalived
+    ├── adapta-project
+    │   └── adapta-gtk-theme
+    ├── admiraltyio
+    │   └── multicluster-scheduler
+    └─ AidoP
+       └── Skypaper
+    
+    cat t/acassen/keepalived
+    URL: git@github.com:acassen/keepalived.git
+    Description: Keepalived
