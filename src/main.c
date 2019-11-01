@@ -317,12 +317,12 @@ int main(int argc, char *argv[])
 	char *upass = malloc(strlen(user) + strlen(pass) + 3);
 	memset(upass, 0, strlen(user) + strlen(pass) + 3);
 
-	char *trunc = "https://api.github.com/users//starred";
+	char *trunc = "https://api.github.com/users//starred?per_page=100";
 	char *url = malloc(strlen(trunc)+ strlen(user) + 2);
 	memset(url, 0, strlen(trunc) + strlen(user) + 2);
 
 	snprintf(upass, strlen(pass) + strlen(user) + 3, "%s:%s", user, pass);
-	snprintf(url, strlen(trunc) + strlen(user) + 2, "https://api.github.com/users/%s/starred", user);
+	snprintf(url, strlen(trunc) + strlen(user) + 2, "https://api.github.com/users/%s/starred?per_page=100", user);
 	printf("fetching stars...\n");
 	repos = malloc(sizeof(struct list));
 	memset(repos, 0, sizeof(struct list));

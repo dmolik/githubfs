@@ -17,4 +17,4 @@ RUN apk update \
 	&& rm -rf /tmp/github_fetcher \
 	&& mkdir /repos
 
-ENTRYPOINT ["fetcher", "/repos"]
+ENTRYPOINT ["fetcher", "-f", "/repos"]

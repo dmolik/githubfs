@@ -40,13 +40,13 @@ char * repo_string(repo *r)
 	return strdup(str);
 }
 
-void print_repos(struct list *li)
+void print_repos(FILE *fh, struct list *li)
 {
 	struct el *elm = li->first;
 	repo *r;
 	while (elm != NULL) {
 		r = elm->data;
-		printf("%s:%s\n", r->name, r->url);
+		fprintf(fh, "%s:%s\ndescription: %s\n", r->name, r->url, r->description);
 		elm = elm->next;
 	}
 }

@@ -16,6 +16,6 @@ repo * new_repo(char *name, char *url, char *fullpath, char *description);
 
 char * repo_string(repo *r);
 
-void print_repos(struct list *li);
+void print_repos(FILE *fh, struct list *li);
 
 #endif
