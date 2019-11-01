@@ -38,8 +38,8 @@ For example:
     │   └── adapta-gtk-theme
     ├── admiraltyio
     │   └── multicluster-scheduler
-    └─ AidoP
-       └── Skypaper
+    └── AidoP
+        └── Skypaper
     
     > cat t/acassen/keepalived
     URL: git@github.com:acassen/keepalived.git
