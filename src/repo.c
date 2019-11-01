@@ -47,6 +47,8 @@ void print_repos(FILE *fh, struct list *li)
 	while (elm != NULL) {
 		r = elm->data;
 		fprintf(fh, "%s:%s\ndescription: %s\n", r->name, r->url, r->description);
+		if (elm->next != NULL)
+			fprintf(fh, "\n");
 		elm = elm->next;
 	}
 }
