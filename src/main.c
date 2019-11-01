@@ -139,35 +139,42 @@ int get(CURL *curl, char *url, char *post, char *upass, struct list *repos)
 	struct fjson_object *page_info  = NULL;
 	struct fjson_object *tmp        = obj;
 	if (!fjson_object_object_get_ex(tmp, "data", &tmp)) {
-		fprintf(stderr, "failed to get hasNext json_object\n");
+		fprintf(stderr, "%s\n", fjson_object_to_json_string(tmp));
+		fprintf(stderr, "failed to get data json_object\n");
 		exit(EXIT_FAILURE);
 	}
 	if (!fjson_object_object_get_ex(tmp, "viewer", &tmp)) {
-		fprintf(stderr, "failed to get hasNext json_object\n");
+		fprintf(stderr, "%s\n", fjson_object_to_json_string(tmp));
+		fprintf(stderr, "failed to get viewer json_object\n");
 		exit(EXIT_FAILURE);
 	}
 	if (!fjson_object_object_get_ex(tmp, "starredRepositories", &tmp)) {
-		fprintf(stderr, "failed to get hasNext json_object\n");
+		fprintf(stderr, "%s\n", fjson_object_to_json_string(tmp));
+		fprintf(stderr, "failed to get starred repos json_object\n");
 		exit(EXIT_FAILURE);
 	}
 	if (!fjson_object_object_get_ex(tmp, "pageInfo", &page_info)) {
-		fprintf(stderr, "failed to get hasNext json_object\n");
+		fprintf(stderr, "%s\n", fjson_object_to_json_string(tmp));
+		fprintf(stderr, "failed to get pageInfo json_object\n");
 		exit(EXIT_FAILURE);
 	}
 	if (!fjson_object_object_get_ex(page_info, "hasNextPage", &next_obj)) {
+		fprintf(stderr, "%s\n", fjson_object_to_json_string(page_info));
 		fprintf(stderr, "failed to get hasNext json_object\n");
 		exit(EXIT_FAILURE);
 	}
 	bool has_next = fjson_object_get_boolean(next_obj);
 
 	if (!fjson_object_object_get_ex(page_info, "endCursor", &cursor_obj)) {
-		fprintf(stderr, "failed to get hasNext json_object\n");
+		fprintf(stderr, "%s\n", fjson_object_to_json_string(page_info));
+		fprintf(stderr, "failed to get endCursor json_object\n");
 		exit(EXIT_FAILURE);
 	}
 	const char *cursor = fjson_object_get_string(cursor_obj);
 
 	if (!fjson_object_object_get_ex(tmp, "nodes", &nodes)) {
-		fprintf(stderr, "failed to get hasNext json_object\n");
+		fprintf(stderr, "%s\n", fjson_object_to_json_string(tmp));
+		fprintf(stderr, "failed to get nodes json_object\n");
 		exit(EXIT_FAILURE);
 	}
 
