@@ -1,27 +1,30 @@
 
-CFLAGS ?= -Wall -Wextra -pipe -pedantic
+CFLAGS ?= -Wall -Wextra -pipe -pedantic -g
 LIBS   := -lcurl -lfastjson -lfuse
 DESTDIR ?=
 PREFIX  ?= /usr/local
 LDFLAGS := -Wl,--as-needed -L/usr/lib
 REPO ?= dmolik
 
+
+BINS := githubfs
+
+
 default: all
 
-all: fetcher
+all: $(BINS)
 
 .PHONY: clean
-
-BINS := fetcher
 
 src/%.o: src/%.c
 	$(CC) $(CFLAGS) -O -o $@ -c $<
 
-fetcher: src/main.o src/repo.o src/list.o
+# TODO - do some fancy gymnastics here and abtract out target
+githubfs: src/main.o src/repo.o src/list.o src/fetch.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean:
-	rm -rf src/*.o *.o fetcher
+	rm -rf src/*.o *.o $(BINS)
 
 install: $(addprefix install_,$(BINS))
 
