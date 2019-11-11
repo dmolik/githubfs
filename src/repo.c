@@ -3,19 +3,25 @@
 #include <stdio.h>
 #include "repo.h"
 
+#define MIN(X, Y) (((X) < (Y)) ? (X) : (Y))
 
-repo * new_repo(char *name, char *url, char *fullpath, char *description)
+repo new_repo(char *name, char *url, char *fullpath, char *description)
 {
-	repo *r;
-	if ((r = malloc(sizeof(repo))) == NULL)
-		return NULL;
-	memset(r, 0, sizeof(repo));
-	r->name = name;
-	r->url  = url;
-	r->description = description;
+	repo r = { 0 };
+	size_t len = MIN(strlen(name) + 1, sizeof(r.name) - 1);
+	memcpy(r.name, name, len);
+	r.name[len] = '\0';
 
-	char *path1  = malloc(strlen(fullpath) + 3);
-	memset(path1, 0, strlen(fullpath) + 3);
+	len = MIN(strlen(url) + 1, sizeof(r.url) - 1);
+	memcpy(r.url, url, len);
+	r.url[len] = '\0';
+
+	len = MIN(strlen(description) + 1, sizeof(r.description) - 1);
+	memcpy(r.description, description, len);
+	r.description[len] = '\0';
+
+	char *path1  = malloc(strlen(fullpath) + 2);
+	memset(path1, 0, strlen(fullpath) + 2);
 	path1[0] = '/';
 	path1[1] = '\0';
 	strcat(path1, fullpath);
@@ -23,8 +29,14 @@ repo * new_repo(char *name, char *url, char *fullpath, char *description)
 	char *path0 = strdup(path1);
 	path0[strlen(path0) - strlen(rindex(path0, '/'))] = '\0';
 
-	r->path[0] = strdup(path0);
-	r->path[1] = strdup(path1);
+	len = MIN(strlen(path0) + 1, sizeof(r.path[0]));
+	memcpy(r.path[0], path0, len);
+	r.path[0][len - 1] = '\0';
+	len = MIN(strlen(path1) + 1, sizeof(r.path[1]));
+	memcpy(r.path[1], path1, len);
+	r.path[1][len - 1] = '\0';
+	free(path0);
+	free(path1);
 	return r;
 }
 
@@ -38,17 +50,4 @@ char * repo_string(repo *r)
 	memset(str, 0, len);
 	snprintf(str, len, "URL: %s\nDescription: %s\n", r->url, r->description);
 	return strdup(str);
-}
-
-void print_repos(FILE *fh, struct list *li)
-{
-	struct el *elm = li->first;
-	repo *r;
-	while (elm != NULL) {
-		r = elm->data;
-		fprintf(fh, "%s:%s\ndescription: %s\n", r->name, r->url, r->description);
-		if (elm->next != NULL)
-			fprintf(fh, "\n");
-		elm = elm->next;
-	}
 }

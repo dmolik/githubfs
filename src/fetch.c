@@ -82,7 +82,7 @@ static size_t post_callback(void *buf, size_t size, size_t nmemb, void *data)
 	return 0; /* no more data left to deliver */
 }
 
-int get(CURL *curl, char *url, char *post, char *upass, struct list *repos)
+int get(CURL *curl, char *url, char *post, char *upass, MDB_env *env)
 {
 	struct string s;
 	init_string(&s);
@@ -169,6 +169,22 @@ int get(CURL *curl, char *url, char *post, char *upass, struct list *repos)
 		exit(EXIT_FAILURE);
 	}
 
+	int rc;
+	MDB_txn *txn;
+	MDB_dbi  dbir, dbio;
+	if ((rc = mdb_txn_begin(env, NULL, 0, &txn)) != 0) {
+		fprintf(stderr, "failed to get txn (%d) %s\n", rc, mdb_strerror(rc));
+		return -1;
+	}
+	if ((rc = mdb_dbi_open(txn, "repos", MDB_CREATE, &dbir)) != 0) {
+		fprintf(stderr, "failed to open repos dbi (%d) %s\n", rc, mdb_strerror(rc));
+		return -1;
+	}
+	if ((rc = mdb_dbi_open(txn, "orgs", MDB_CREATE, &dbio)) != 0) {
+		fprintf(stderr, "failed to open orgs dbi (%d) %s\n", rc, mdb_strerror(rc));
+		return -1;
+	}
+
 	int length = fjson_object_array_length(nodes);
 	for (int i = 0; i < length; i++) {
 		fjson_object *elm = fjson_object_array_get_idx(nodes, i);
@@ -178,7 +194,6 @@ int get(CURL *curl, char *url, char *post, char *upass, struct list *repos)
 		char *surl = NULL;
 		char *description = NULL;
 		char *fullpath = NULL;
-		repo *r;
 		while (!fjson_object_iter_equal(&it, &itEnd)) {
 			if (strcmp("name", fjson_object_iter_peek_name(&it)) == 0)
 				name = (char *) fjson_object_get_string(fjson_object_iter_peek_value(&it));
@@ -189,8 +204,30 @@ int get(CURL *curl, char *url, char *post, char *upass, struct list *repos)
 			if (strcmp("description", fjson_object_iter_peek_name(&it)) == 0)
 				description = (char *) fjson_object_get_string(fjson_object_iter_peek_value(&it));
 			if (name != NULL && surl != NULL && description != NULL && fullpath != NULL) {
-				r = new_repo(name, surl, fullpath, description);
-				add_el(repos, new_el(r));
+				repo r = new_repo(name, surl, fullpath, description);
+				MDB_val key = { 0 };
+				MDB_val val = { 0 };
+				key.mv_size = strlen(fullpath) + 1;
+				key.mv_data = strdup(fullpath);
+				val.mv_data = &r;
+				val.mv_size = sizeof(repo);
+
+				MDB_val korg = { 0 };
+				char *org = strdup(r.path[0]);
+				org++;
+				korg.mv_size = strlen(org) + 1;
+				korg.mv_data = org;
+				MDB_val vorg = { 0 };
+				vorg.mv_size = strlen(org) + 1;
+				vorg.mv_data = strdup(org);
+				if ((rc = mdb_put(txn, dbir, &key, &val, 0)) != 0) {
+					fprintf(stderr, "failed to add key [%s], to repos db, (%d) %s\n", (char *) key.mv_data, rc, mdb_strerror(rc));
+					return -1;
+				}
+				if ((rc = mdb_put(txn, dbio, &korg, &vorg, 0)) != 0) {
+					fprintf(stderr, "failed to add key [%s], to orgs db, (%d) %s\n", (char *) korg.mv_data, rc, mdb_strerror(rc));
+					return -1;
+				}
 				break;
 			}
 			fjson_object_iter_next(&it);
@@ -199,13 +236,27 @@ int get(CURL *curl, char *url, char *post, char *upass, struct list *repos)
 	if (!fjson_object_iter_equal(&it, &itEnd)) {
 		//do nothing
 	}
+
+	if ((rc = mdb_txn_commit(txn)) != 0) {
+		fprintf(stderr, "failed commit transaction to repos, (%d) %s\n", rc, mdb_strerror(rc));
+		return -1;
+	}
+	if ((rc = mdb_env_sync(env, 1)) != 0) {
+		fprintf(stderr, "failed to sync repos to disk, (%d) %s\n", rc, mdb_strerror(rc));
+		return -1;
+	}
 	free(s.ptr);
+
+	mdb_dbi_close(env, dbir);
+	mdb_dbi_close(env, dbio);
+	//mdb_txn_abort(txn);
 	if (has_next) {
 		char *q = "{\"query\": \"{ viewer { starredRepositories(first: 35, after: \\\"\\\") { nodes { name nameWithOwner sshUrl description } pageInfo { endCursor hasNextPage } } } } \"}";
 		char *content = malloc(strlen(q) + strlen(cursor) + 3);
 		memset(content, 0, strlen(q) + strlen(cursor) + 3);
 		snprintf(content, strlen(q) + strlen(cursor) + 3, "{\"query\": \"{ viewer { starredRepositories(first: 35, after: \\\"%s\\\" ) { nodes { name nameWithOwner sshUrl description } pageInfo { endCursor hasNextPage } } } } \"}", cursor);
-		get(curl, url, content, upass, repos);
+		get(curl, url, content, upass, env);
+		free(content);
 	}
 	return 0;
 }

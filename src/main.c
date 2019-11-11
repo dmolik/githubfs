@@ -1,147 +1,19 @@
 #define FUSE_USE_VERSION 26
 #define _FILE_OFFSET_BITS 64
 
-#include <curl/curl.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <errno.h>
+#include <unistd.h>
 
 #include <fuse.h>
 #include <lmdb.h>
 
 #include "repo.h"
 #include "fetch.h"
-
-struct list *repos;
-
-char **dup;
-int   dup_length = 1;
-
-void dedup_list(struct list *li)
-{
-	struct el *elm = li->first;
-	repo *r;
-	while (elm != NULL) {
-		r = elm->data;
-		char *tmp = strdup(r->path[0]);
-		tmp++;
-		for (int i = 0; i < dup_length; i++) {
-			if (i == 0 && dup_length == 1) {
-				// list is uninitialized
-				dup[i] = malloc(strlen(tmp));
-				dup[i] = strdup(tmp);
-				dup_length++;
-				break;
-			} else if (i == dup_length - 1) { // last element
-				dup[i] = malloc(strlen(tmp));
-				dup[i] = strdup(tmp);
-				dup_length++;
-				break;
-			} else if (strcmp(tmp, dup[i]) == 0) {
-				break;
-			}
-		}
-		elm = elm->next;
-	}
-	dup_length--;
-}
-
-static int readdir_callback(const char *path, void *buf, fuse_fill_dir_t filler,
-	off_t offset, __attribute__((unused)) struct fuse_file_info *fi)
-{
-	(void) offset;
-	(void) fi;
-
-	filler(buf, ".", NULL, 0);
-	filler(buf, "..", NULL, 0);
-
-	if (strncmp(path, "/", 2) == 0) {
-		for (int i = 0; i < dup_length; i++) {
-			filler(buf, dup[i], NULL, 0);
-		}
-	} else {
-		struct el *elm = repos->first;
-		repo *r;
-		while (elm != NULL) {
-			r = elm->data;
-			if (strcmp(path, r->path[0]) == 0) {
-				filler(buf, r->name, NULL, 0);
-			}
-			elm = elm->next;
-		}
-	}
-
-	return 0;
-}
-
-static int getattr_callback(const char *path, struct stat *stbuf)
-{
-	memset(stbuf, 0, sizeof(struct stat));
-
-	if (strncmp(path, "/", 2) == 0) {
-		stbuf->st_mode = S_IFDIR | 0755;
-		stbuf->st_nlink = 2;
-		return 0;
-	}
-
-	struct el *elm = repos->first;
-	repo *r;
-	while (elm != NULL) {
-		r = elm->data;
-		if (strcmp(path, r->path[0]) == 0) {
-			stbuf->st_mode = S_IFDIR | 0755;
-			stbuf->st_nlink = 2;
-			return 0;
-		}
-		elm = elm->next;
-	}
-
-	elm = repos->first;
-	while (elm != NULL) {
-		r = elm->data;
-		if (strcmp(path, r->path[1]) == 0) {
-			stbuf->st_mode = S_IFREG | 0444;
-			stbuf->st_nlink = 1;
-			stbuf->st_size = strlen(repo_string(r));
-			return 0;
-		}
-		elm = elm->next;
-	}
-
-	return -ENOENT;
-}
-
-static int open_callback(__attribute__((unused)) const char *path, __attribute__((unused)) struct fuse_file_info *fi) {
-	return 0;
-}
-
-static int read_callback(const char *path, char *buf, size_t size, off_t offset,
-	__attribute__((unused)) struct fuse_file_info *fi)
-{
-	struct el *elm = repos->first;
-	repo *r;
-	while (elm != NULL) {
-		r = elm->data;
-		if (strncmp(path, r->path[1], strlen(r->path[1]) + 1) == 0) {
-			char *content = repo_string(r);
-			size_t len = strlen(content);
-			if ((size_t)offset >= len) {
-				return 0;
-			}
-
-			if (offset + size > len) {
-				memcpy(buf, content + offset, len - offset);
-				return len - offset;
-			}
-
-			memcpy(buf, content + offset, size);
-			return size;
-		}
-		elm = elm->next;
-	}
-	return -ENOENT;
-}
+#include "fs.h"
+#include "conf.h"
 
 static struct fuse_operations fuse_fetcher_opts = {
 	.getattr = getattr_callback,
@@ -160,10 +32,9 @@ static int _mkdir(const char *dir, mode_t mode)
 	len = strlen(tmp);
 	if (tmp[len - 1] == '/')
 		tmp[len - 1] = 0;
-	for(p = tmp + 1; *p; p++)
+	for (p = tmp + 1; *p; p++)
 		if (*p == '/') {
 			*p = 0;
-			
 			if (mkdir(tmp, mode) == -1 && errno != EEXIST)
 				return -1;
 			*p = '/';
@@ -173,9 +44,20 @@ static int _mkdir(const char *dir, mode_t mode)
 
 int main(int argc, char *argv[])
 {
-	// getenv("HOME")
-	_mkdir("t/db",     0750);
-	_mkdir("t/repos",  0750);
+	char *home = getenv("HOME");
+	char *test = getenv("TEST");
+	char *repos = strdup(argv[1]);
+	char dbpath[256];
+	char repopath[256];
+	sprintf(dbpath, "%s/.config/gitfs/db", home);
+	if (test != NULL) {
+		sprintf(dbpath,   "%s/db", repos);
+		sprintf(repopath, "%s/repos", repos);
+	} else
+		sprintf(repopath, "%s", repos);
+	_mkdir(dbpath,   0750);
+	_mkdir(repopath, 0750);
+
 
 	char *user = getenv("GH_USER");
 	char *pass = getenv("GH_TOKEN");
@@ -184,11 +66,24 @@ int main(int argc, char *argv[])
 	memset(upass, 0, strlen(user) + strlen(pass) + 3);
 	snprintf(upass, strlen(pass) + strlen(user) + 3, "%s:%s", user, pass);
 
-	repos = malloc(sizeof(struct list)); // push -> database - 1
-	memset(repos, 0, sizeof(struct list));
-
-	// rc = mdb_env_create(&env);
-	// rc = mdb_env_open(env, "./testdb", MDB_MAPASYNC|MDB_WRITEMAP|MDB_MAPASYNC, 0664);
+	int rc;
+	MDB_env *env;
+	if ((rc = mdb_env_create(&env)) != 0) {
+		fprintf(stderr, "failed to create db env: (%d) %s\n", rc, mdb_strerror(rc));
+		exit(EXIT_FAILURE);
+	}
+	if ((rc = mdb_env_set_mapsize(env, getpagesize() * 1024 )) != 0) {
+		fprintf(stderr, "failed to set mmap size: (%d) %s\n", rc, mdb_strerror(rc));
+		exit(EXIT_FAILURE);
+	}
+	if ((rc = mdb_env_set_maxdbs(env, 2)) != 0) {
+		fprintf(stderr, "failed to add multiple named databases: (%d) %s\n", rc, mdb_strerror(rc));
+		exit(EXIT_FAILURE);
+	}
+	if ((rc = mdb_env_open(env, dbpath, MDB_MAPASYNC|MDB_WRITEMAP|MDB_MAPASYNC, 0640)) != 0) {
+		fprintf(stderr, "failed to open db env: (%d) %s\n", rc, mdb_strerror(rc));
+		exit(EXIT_FAILURE);
+	}
 
 	// pthread_create // fetcher
 	printf("fetching stars...\n");
@@ -196,24 +91,43 @@ int main(int argc, char *argv[])
 	if (curl) {
 		get(curl, "https://api.github.com/graphql",
 			"{\"query\": \"{ viewer { starredRepositories(first: 35) { nodes { name nameWithOwner sshUrl description } pageInfo { endCursor hasNextPage } } } } \"}",
-			upass, repos);
+			upass, env);
 		curl_easy_cleanup(curl);
 	} else {
 		curl_easy_cleanup(curl);
 		exit(1);
 	}
-	// printf("  finished\n");
-	printf("deduping orgs\n");
-	dup = malloc(sizeof(char **) * list_len(repos));
-	dedup_list(repos); // push -> database - 0
-	// printf("finished\n");
+	free(upass);
+
+	gfsconf *gfs;
+	gfs = malloc(sizeof(gfsconf));
+	memset(gfs, 0, sizeof(gfsconf));
+	if ((rc = mdb_txn_begin(env, NULL, 0, &gfs->txn)) != 0) {
+		fprintf(stderr, "failed to get txn (%d) %s\n", rc, mdb_strerror(rc));
+		return -1;
+	}
+	if ((rc = mdb_dbi_open(gfs->txn, "repos", MDB_CREATE, &gfs->dbir)) != 0) {
+		fprintf(stderr, "failed to open repos dbi (%d) %s\n", rc, mdb_strerror(rc));
+		return -1;
+	}
+	if ((rc = mdb_dbi_open(gfs->txn, "orgs", MDB_CREATE, &gfs->dbio)) != 0) {
+		fprintf(stderr, "failed to open orgs dbi (%d) %s\n", rc, mdb_strerror(rc));
+		return -1;
+	}
+
 	printf("mounting filesystem\n");
-	//end fetcher
+	if (test != NULL) {
+		argc = 4;
+		argv[0] = "githubfs";
+		argv[1] = "-d";
+		argv[2] = "-f";
+		argv[3] = repopath;
+	} else {
+		argc = 3;
+		argv[0] = "githubfs";
+		argv[1] = "-f";
+		argv[2] = repopath;
+	}
 
-	argc = 3;
-	argv[0] = "githubfs";
-	argv[1] = "-f";
-	argv[2] = "t/repos";
-
-	return fuse_main(argc, argv, &fuse_fetcher_opts, NULL);
+	return fuse_main(argc, argv, &fuse_fetcher_opts, gfs);
 }

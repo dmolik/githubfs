@@ -1,6 +1,7 @@
 
 CFLAGS ?= -Wall -Wextra -pipe -pedantic -g
-LIBS   := -lcurl -lfastjson -lfuse
+# TODO - add sanatize targets for pipeline -fsanitize=address
+LIBS   := -lcurl -lfastjson -lfuse -llmdb
 DESTDIR ?=
 PREFIX  ?= /usr/local
 LDFLAGS := -Wl,--as-needed -L/usr/lib
@@ -20,7 +21,7 @@ src/%.o: src/%.c
 	$(CC) $(CFLAGS) -O -o $@ -c $<
 
 # TODO - do some fancy gymnastics here and abtract out target
-githubfs: src/main.o src/repo.o src/list.o src/fetch.o
+githubfs: src/main.o src/fs.o src/repo.o src/fetch.o
 	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $^ $(LIBS)
 
 clean:
