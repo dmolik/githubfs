@@ -4,9 +4,11 @@ I got curious over the weekend and wonder what it would be like to query the Git
 
 The project has evolved! it now mounts a full list of your stared repos to a directory of your choosing using [Fuse](https://github.com/libfuse/libfuse).
 
+The code has now been refactored to use [LMDB](https://symas.com/lmdb/) for persistence, and Repo access.
+
 ## Prerequisites
 
-You're going to need a; Compiler, Make of some sort, libfastjson with headers, and libcurl with it's headers. And, libfuse.
+You're going to need a; Compiler, Make of some sort, libfastjson with headers, and libcurl with it's headers, libfuse, and now lmdb with it's headers.
 
 ## Building
 
